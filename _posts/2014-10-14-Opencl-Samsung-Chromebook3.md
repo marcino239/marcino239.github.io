@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Opencl on Samsung Chromebook 3
+title: OpenCL on Samsung Chromebook 3
 ---
 
 Here's quick description how to get going OpenCL on Samsung Chromebook 3.
@@ -32,9 +32,7 @@ ls -l /dev/mali0
 
 5. Enjoy 1 node of [supercomputer](http://www.xbitlabs.com/news/other/display/20121119221057_Barcelona_Supercomputing_Center_Selects_Samsung_Exynos_Processor_for_Supercomputer.html) power
 
-Credits:
-
-[DrinkCat](http://drinkcat.blogspot.com/2013/11/opencl-on-samsung-chromebook-arm-under.html)
-
+Credits:  
+[DrinkCat](http://drinkcat.blogspot.com/2013/11/opencl-on-samsung-chromebook-arm-under.html)  
 [Krishnaraj Bhat](http://krblogs.com/post/65347946766/mali-drivers-on-chromebook)
 
