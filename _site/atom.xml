@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+ <title>marcino239</title>
+ <link href="http://marcino239.github.io/atom.xml" rel="self"/>
+ <link href="http://marcino239.github.io/"/>
+ <updated>2014-10-18T10:36:11-07:00</updated>
+ <id>http://marcino239.github.io</id>
+ <author>
+   <name>original by Mark Otto</name>
+   <email></email>
+ </author>
+
+ 
+ <entry>
+   <title>Opencl on Samsung Chromebook 3</title>
+   <link href="http://marcino239.github.io//2014/10/14/Opencl-Samsung-Chromebook3/"/>
+   <updated>2014-10-14T00:00:00-07:00</updated>
+   <id>http://marcino239.github.io/2014/10/14/Opencl-Samsung-Chromebook3</id>
+   <content type="html">&lt;h2 id=&quot;heres-quick-description-how-to-get-going-opencl-on-samsung-chromebook-3&quot;&gt;Here’s quick description how to get going OpenCL on Samsung Chromebook 3.&lt;/h2&gt;
+
+&lt;h3 id=&quot;steps&quot;&gt;Steps:&lt;/h3&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;
+    &lt;p&gt;Install &lt;a href=&quot;https://github.com/dnschneid/crouton&quot;&gt;crouton&lt;/a&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Install Mali drivers and SDK&lt;/p&gt;
+    &lt;ul&gt;
+      &lt;li&gt;Mali &lt;a href=&quot;http://malideveloper.arm.com/develop-for-mali/drivers/mali-t6xx-gpu-user-space-drivers/http://malideveloper.arm.com/develop-for-mali/drivers/mali-t6xx-gpu-user-space-drivers/&quot;&gt;driver&lt;/a&gt; - choose T604 X11 version &lt;/li&gt;
+      &lt;li&gt;Mali &lt;a href=&quot;http://malideveloper.arm.com/develop-for-mali/sdk/mali-opencl-sdk/&quot;&gt;SDK&lt;/a&gt;&lt;/li&gt;
+      &lt;li&gt;I’ve installed the driver libraries into /usr/lib to avoid config-fu&lt;/li&gt;
+      &lt;li&gt;Run sudo ldconfig&lt;/li&gt;
+      &lt;li&gt;Modify library links to avoid symbol &lt;a href=&quot;http://krblogs.com/post/65347946766/mali-drivers-on-chromebook&quot;&gt;lookup errors&lt;/a&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;&lt;code&gt;
+ln -s /usr/lib/libmali.so /usr/lib/libOpenCL.so.1  
+ln -s /usr/lib/libOpenCL.so.1 /usr/lib/libOpenCL.so
+&lt;/code&gt;&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;
+    &lt;p&gt;Check permissions to the mali GPU device. I’ve added myself to the video group&lt;br /&gt;
+&lt;code&gt;
+ls -l /dev/mali0
+&lt;/code&gt;&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Compile SDK examples to test if all is good.  &lt;a href=&quot;http://drinkcat.blogspot.com/2013/11/opencl-on-samsung-chromebook-arm-under.html&quot;&gt;DrinkCat&lt;/a&gt;
+ has very good tutorial on this&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;Enjoy 1 node of &lt;a href=&quot;http://www.xbitlabs.com/news/other/display/20121119221057_Barcelona_Supercomputing_Center_Selects_Samsung_Exynos_Processor_for_Supercomputer.html&quot;&gt;supercomputer&lt;/a&gt; power&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;Credits:&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;http://drinkcat.blogspot.com/2013/11/opencl-on-samsung-chromebook-arm-under.html&quot;&gt;DrinkCat&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;http://krblogs.com/post/65347946766/mali-drivers-on-chromebook&quot;&gt;Krishnaraj Bhat&lt;/a&gt;&lt;/p&gt;
+
+</content>
+ </entry>
+ 
+
+</feed>
