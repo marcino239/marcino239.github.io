@@ -17,15 +17,12 @@ Here's quick description how to get going OpenCL on Samsung Chromebook 3.
     * Run sudo ldconfig
     * Modify library links to avoid symbol [lookup errors](http://krblogs.com/post/65347946766/mali-drivers-on-chromebook)
 
-```
-ln -s /usr/lib/libmali.so /usr/lib/libOpenCL.so.1  
-ln -s /usr/lib/libOpenCL.so.1 /usr/lib/libOpenCL.so
-```
+            ln -s /usr/lib/libmali.so /usr/lib/libOpenCL.so.1  
+            ln -s /usr/lib/libOpenCL.so.1 /usr/lib/libOpenCL.so
 
 3. Check permissions to the mali GPU device. I've added myself to the video group  
-```
-ls -l /dev/mali0
-```
+
+        ls -l /dev/mali0
 
 4. Compile SDK examples to test if all is good.  [DrinkCat](http://drinkcat.blogspot.com/2013/11/opencl-on-samsung-chromebook-arm-under.html)
  has very good tutorial on this
@@ -35,4 +32,3 @@ ls -l /dev/mali0
 Credits:  
 [DrinkCat](http://drinkcat.blogspot.com/2013/11/opencl-on-samsung-chromebook-arm-under.html)  
 [Krishnaraj Bhat](http://krblogs.com/post/65347946766/mali-drivers-on-chromebook)
-
