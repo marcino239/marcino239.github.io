@@ -19,7 +19,7 @@ as opposed to Samsung Chromebook 3
 3. Login with user and password user
 4. Download cuda
 
-		wget
+		wget http://developer.download.nvidia.com/compute/cuda/6_5/rel/installers/cuda-repo-l4t-r21.1-6-5-prod_6.5-14_armhf.deb
 		sudo dpkg -i cuda-repo-l4t-r21.1-6-5-prod_6.5-14_armhf.deb
 		cd /var/cuda-repo-6-5-prod
 		sudo dpkg -i cuda*
