@@ -3,7 +3,7 @@ layout: post
 title: Cuda and Acer Chromebook 13
 ---
 
-Here are bullet points how to get use Tegra K1 on Acer Chromebook 13.
+Here's how to use Tegra K1 on Acer Chromebook 13.
 -----
 
 Tegra finally arrived to the chromebook world!  The TK1 chip gives really cool possibilites with 192 Cuda and 4+1 ARM cores.  This post 
