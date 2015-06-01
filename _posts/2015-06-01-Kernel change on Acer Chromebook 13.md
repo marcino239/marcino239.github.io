@@ -36,7 +36,7 @@ This post will show how to compile a working kernel from chrubuntu
 
 	make menuconfig
 
-6. Finaly compile the kernel and modules.  Get a coup of coffee or a tea
+6. Finaly compile the kernel and modules.  Get a cup of coffee or a tea
 
 	make -j 4 zImage modules
 	make tegra124-nyan-big.dtb
@@ -55,7 +55,7 @@ This post will show how to compile a working kernel from chrubuntu
 	sudo dd if=./kernel.bin of=/dev/mmcblk1p6
 	sudo reboot
 
-9. Enjoy your coup of coffe (or tea) while running cuda computations.
+9. Enjoy your cup of coffe (or tea) while running cuda computations.
 
 [1] https://github.com/lgeek/gnu-linux-on-acer-chromebook-13  
 [2] http://www.vctlabs.com/posts/2015/Jan/22/tegra_chromebook_hack/  
