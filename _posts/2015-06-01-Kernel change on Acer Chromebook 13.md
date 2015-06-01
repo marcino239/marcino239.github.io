@@ -57,6 +57,6 @@ This post will show how to compile a working kernel from chrubuntu
 
 9. Enjoy your coup of coffe (or tea) while running cuda computations.
 
-[1] https://github.com/lgeek/gnu-linux-on-acer-chromebook-13
-[2] http://www.vctlabs.com/posts/2015/Jan/22/tegra_chromebook_hack/
-[3] https://groups.google.com/a/chromium.org/forum/#!topic/chromium-os-dev/u9DmbSYWduo
+[1] https://github.com/lgeek/gnu-linux-on-acer-chromebook-13  
+[2] http://www.vctlabs.com/posts/2015/Jan/22/tegra_chromebook_hack/  
+[3] https://groups.google.com/a/chromium.org/forum/#!topic/chromium-os-dev/u9DmbSYWduo  
