@@ -62,4 +62,4 @@ This post will show how to compile a working kernel from chrubuntu
 
 [1] [https://github.com/lgeek/gnu-linux-on-acer-chromebook-13](https://github.com/lgeek/gnu-linux-on-acer-chromebook-13)  
 [2] [http://www.vctlabs.com/posts/2015/Jan/22/tegra_chromebook_hack/](https://github.com/lgeek/gnu-linux-on-acer-chromebook-13)  
-[3] [https://github.com/lgeek/gnu-linux-on-acer-chromebook-13](https://groups.google.com/a/chromium.org/forum/#!topic/chromium-os-dev/u9DmbSYWduo)  
+[3] [https://groups.google.com/a/chromium.org/forum/#!topic/chromium-os-dev/u9DmbSYWduo)](https://groups.google.com/a/chromium.org/forum/#!topic/chromium-os-dev/u9DmbSYWduo)  
