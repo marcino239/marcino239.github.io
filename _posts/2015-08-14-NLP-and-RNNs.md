@@ -1,7 +1,7 @@
 ---
 layout: post
-titile: Classification With Neural Networks
-html_name: Classification_With_NN_1.html
+titile: NLP and RNNs
+html_name: NLP_and_RNNs.html
 ---
 
 {% capture includeGuts %}

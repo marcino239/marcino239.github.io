@@ -1,0 +1,46 @@
+<script type="text/javascript"
+  src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+<script type="text/javascript">
+init_mathjax = function() {
+    if (window.MathJax) {
+        // MathJax loaded
+        MathJax.Hub.Config({
+            tex2jax: {
+                inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+                displayMath: [ ['$$','$$'], ["\\[","\\]"] ]
+            },
+            displayAlign: 'left', // Change this to 'center' to center equations.
+            "HTML-CSS": {
+                styles: {'.MathJax_Display': {"margin": 0}}
+            }
+        });
+        MathJax.Hub.Queue(["Typeset",MathJax.Hub]);
+    }
+}
+init_mathjax();
+</script>
+
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Andrej Karpathy wrote great <a href="http://karpathy.github.io/2015/05/21/rnn-effectiveness">post</a> on teaching a Recursive Neural Net structure of the english language. Let's try to run few experiments based on the minimal implementation of the RNN algorithm. The code for the experiments is in <a href="https://github.com/marcino239/min_rnn">this git</a>.</p>
+<p>An RNN cell is described by the following equations:</p>
+<p><span class="math">\[ h_{in} = W_{xh} x + W_{hh} h + b_{h} \]</span> <span class="math">\[ h&#39; = f( h_{in} ) \]</span> <span class="math">\[ y = W_{xh} h&#39; + b_{y} \]</span></p>
+<p>And with softmax output:</p>
+<p><span class="math">\[ p_i = \frac{ e^{y_i} }{ \sum{ e^{y_i} } } \]</span></p>
+<p>Original implementation of the RNN uses tanh as an activation function <span class="math">\(f( h_{in} )\)</span>. The backprogation through tanh therefore is:</p>
+<p><span class="math">\[ dh_{raw} = (1 - \tanh^2( h_{in} )) dh&#39; \]</span></p>
+<p>I was curious how Rectified Linear Unit (RELU) would perform during text recovery by RNN. The forward pass in case of RELU is trivial:</p>
+<p><span class="math">\[ h&#39; = \max( 0, W_{xh} x + W_{hh} h + b_{h} ) \]</span></p>
+<p>The backward pass is not too complicated either:</p>
+<p><span class="math">\[ dh_{raw} = sig( h_{in} ) dh \]</span></p>
+<p>The output from the two comparable nets looks quite interesting (the net was trained on Paul Graham essays). This is what we get after 2,078,400 iterations from tanh version:</p>
+<blockquote>
+<p><em> he reems and gens Alance your fing dation such in is or dereacted to next if you've about on surpricate shof you've work like that the moypravisy 5 9-be idess Leforter, because is that atered as they<br /></em></p>
+</blockquote>
+<p>A bit bubly, isn't it? Here's the RELU version after the same number of iterations:</p>
+<blockquote>
+<p><em> hat it found lices like. But language job sharen relras answeaking happens and by business could want you explane-- not just thacker durery is decide the do you be meaged to figure finiction it don't<br /></em></p>
+</blockquote>
+<p>Still bubly, albeit a bit less. The following chart shows loss as a function of iterations.<br /><img src="/images/rnn_loss_tanh_relu.png" /></p>
+<p>What's interesting about RELUs is that they converge much faster than tanh, however at the begining I was getting lot's of overflow errors. Clipping the vectors before softmax allowed to remove this problem.</p>
+</div>
