@@ -282,3 +282,7 @@ ul.posts span {
     right:30px;
     z-index:1000;
 }
+
+.output_text pre {
+	white-space: pre-wrap;
+}
