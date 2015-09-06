@@ -31,7 +31,7 @@ init_mathjax();
 $$ J( \theta ) = \frac{1}{T} \sum_{i=1}^T \sum_{-c\le j\le c, j\ne 0} \log p( w_{i+j} \mid w_i ) $$<p>The probability function $ p( w_{i+j} \mid w_i ) $ can take many forms, however the original paper uses a form of soft max [1]:</p>
 $$ p( w_{i+j} \mid w_i ) = \frac{ e^{ v_{w_o}^T v_{w_i} } }{ \sum_{w=1}^W e^{ v_{w_o}^T v_{w_i} } } $$<p>There are couple of problems when searching parameters for an above function as computing the denominator is expensive and created matrix can be very large depending on number of words in the dictionary.  For this reason we will use gensim package that wraps the search algorithm [2].</p>
 <p>This code is partially based on Kaggle's Bag of Words meets Bag of Popcorn [3]</p>
-<p><a href="http://arxiv.org/abs/1301.3781">1 - Efficient Estimation of Word Representations in Vector Space</a><br>
+<p><a href="http://arxiv.org/abs/1310.4546">1 - Efficient Estimation of Word Representations in Vector Space</a><br>
 <a href="https://radimrehurek.com/gensim/">2 - gensim: Topic modelling for humans - Radim Řehůřek</a><br>
 <a href="https://www.kaggle.com/c/word2vec-nlp-tutorial/details/part-2-word-vectors">3 - Word Vectors</a></p>
 
