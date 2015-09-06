@@ -1,0 +1,767 @@
+<script type="text/javascript"
+  src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+<script type="text/javascript">
+init_mathjax = function() {
+    if (window.MathJax) {
+        // MathJax loaded
+        MathJax.Hub.Config({
+            tex2jax: {
+                inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+                displayMath: [ ['$$','$$'], ["\\[","\\]"] ]
+            },
+            displayAlign: 'left', // Change this to 'center' to center equations.
+            "HTML-CSS": {
+                styles: {'.MathJax_Display': {"margin": 0}}
+            }
+        });
+        MathJax.Hub.Queue(["Typeset",MathJax.Hub]);
+    }
+}
+init_mathjax();
+</script>
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Word vectors is a cool idea to pack word information in to an $R^n$ vector.  The difference from the bag of words method is that $n$ is smaller than the size of dictionary.  Aditionally as a side effect of optimisation word vectors have very interesting features.</p>
+<p>Word vectors are result of maximisation of probability of finding word in a specifc context:</p>
+$$ J( \theta ) = \frac{1}{T} \sum_{i=1}^T \sum_{-c\le j\le c, j\ne 0} \log p( w_{i+j} \mid w_i ) $$<p>The probability function $ p( w_{i+j} \mid w_i ) $ can take many forms, however the original paper uses a form of soft max [1]:</p>
+$$ p( w_{i+j} \mid w_i ) = \frac{ e^{ v_{w_o}^T v_{w_i} } }{ \sum_{w=1}^W e^{ v_{w_o}^T v_{w_i} } } $$<p>There are couple of problems when searching parameters for an above function as computing the denominator is expensive and created matrix can be very large depending on number of words in the dictionary.  For this reason we will use gensim package that wraps the search algorithm [2].</p>
+<p>This code is partially based on Kaggle's Bag of Words meets Bag of Popcorn [3]</p>
+<p><a href="http://arxiv.org/abs/1301.3781">1 - Efficient Estimation of Word Representations in Vector Space</a><br>
+<a href="https://radimrehurek.com/gensim/">2 - gensim: Topic modelling for humans - Radim Řehůřek</a><br>
+<a href="https://www.kaggle.com/c/word2vec-nlp-tutorial/details/part-2-word-vectors">3 - Word Vectors</a></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[1]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="o">%</span><span class="k">matplotlib</span> inline
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="kn">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">gensim</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">nltk.data</span>
+
+<span class="kn">from</span> <span class="nn">bs4</span> <span class="kn">import</span> <span class="n">BeautifulSoup</span>
+<span class="kn">from</span> <span class="nn">matplotlib</span> <span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+<span class="kn">from</span> <span class="nn">nltk.corpus</span> <span class="kn">import</span> <span class="n">stopwords</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[2]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="c"># load data</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span> <span class="s">&#39;labeledTrainData.tsv&#39;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">delimiter</span><span class="o">=</span><span class="s">&#39;</span><span class="se">\t</span><span class="s">&#39;</span><span class="p">,</span> <span class="n">quoting</span><span class="o">=</span><span class="mi">3</span> <span class="p">)</span>
+<span class="n">df_unlabelled</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span> <span class="s">&#39;unlabeledTrainData.tsv&#39;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">delimiter</span><span class="o">=</span><span class="s">&#39;</span><span class="se">\t</span><span class="s">&#39;</span><span class="p">,</span> <span class="n">quoting</span><span class="o">=</span><span class="mi">3</span> <span class="p">)</span>
+
+<span class="c"># train test / ratio of 0.66</span>
+<span class="n">tt_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">binomial</span><span class="p">(</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">0.66</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">)</span>
+<span class="n">train</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span> <span class="n">tt_index</span> <span class="o">==</span> <span class="mi">1</span> <span class="p">]</span>
+<span class="n">test</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span> <span class="n">tt_index</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">]</span>
+
+<span class="k">print</span><span class="p">(</span> <span class="s">&#39;train shape: {0}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span> <span class="n">train</span><span class="o">.</span><span class="n">shape</span> <span class="p">)</span> <span class="p">)</span>
+<span class="k">print</span><span class="p">(</span> <span class="s">&#39;test shape: {0}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span> <span class="n">test</span><span class="o">.</span><span class="n">shape</span> <span class="p">)</span> <span class="p">)</span>
+<span class="k">print</span><span class="p">(</span> <span class="s">&#39;unlabelled shape: {0}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span> <span class="n">df_unlabelled</span><span class="o">.</span><span class="n">shape</span> <span class="p">)</span> <span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>train shape: (16554, 3)
+test shape: (8446, 3)
+unlabelled shape: (50000, 2)
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[3]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="c"># borrowed from Kaggle https://www.kaggle.com/c/word2vec-nlp-tutorial/details/part-2-word-vectors</span>
+<span class="k">def</span> <span class="nf">review_to_wordlist</span><span class="p">(</span> <span class="n">review</span><span class="p">,</span> <span class="n">remove_stopwords</span><span class="o">=</span><span class="bp">False</span> <span class="p">):</span>
+    <span class="c"># remove HTML</span>
+    <span class="n">review_text</span> <span class="o">=</span> <span class="n">BeautifulSoup</span><span class="p">(</span><span class="n">review</span><span class="p">)</span><span class="o">.</span><span class="n">get_text</span><span class="p">()</span>
+    <span class="n">review_text</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s">&quot;[^a-zA-Z]&quot;</span><span class="p">,</span><span class="s">&quot; &quot;</span><span class="p">,</span> <span class="n">review_text</span><span class="p">)</span>
+    <span class="n">words</span> <span class="o">=</span> <span class="n">review_text</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">remove_stopwords</span><span class="p">:</span>
+        <span class="n">stops</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">stopwords</span><span class="o">.</span><span class="n">words</span><span class="p">(</span><span class="s">&quot;english&quot;</span><span class="p">))</span>
+        <span class="n">words</span> <span class="o">=</span> <span class="p">[</span><span class="n">w</span> <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">words</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">stops</span><span class="p">]</span>
+    <span class="k">return</span> <span class="p">(</span> <span class="n">words</span> <span class="p">)</span>
+
+<span class="c"># Define a function to split a review into parsed sentences</span>
+<span class="k">def</span> <span class="nf">review_to_sentences</span><span class="p">(</span> <span class="n">review</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">,</span> <span class="n">remove_stopwords</span><span class="o">=</span><span class="bp">False</span> <span class="p">):</span>
+    <span class="n">raw_sentences</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">tokenize</span><span class="p">(</span> <span class="n">review</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s">&#39;utf8&#39;</span><span class="p">,</span> <span class="s">&#39;ignore&#39;</span><span class="p">)</span> <span class="p">)</span>
+    <span class="n">sentences</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">raw_sentence</span> <span class="ow">in</span> <span class="n">raw_sentences</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">raw_sentence</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">sentences</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">review_to_wordlist</span><span class="p">(</span> <span class="n">raw_sentence</span><span class="p">,</span> <span class="n">remove_stopwords</span> <span class="p">))</span>
+    <span class="k">return</span> <span class="n">sentences</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[4]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="c"># Load the punkt tokenizer</span>
+<span class="n">tokenizer</span> <span class="o">=</span> <span class="n">nltk</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s">&#39;tokenizers/punkt/english.pickle&#39;</span><span class="p">)</span>
+
+<span class="n">sentences</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">review</span> <span class="ow">in</span> <span class="n">train</span><span class="p">[</span> <span class="s">&#39;review&#39;</span> <span class="p">]:</span>
+    <span class="n">sentences</span> <span class="o">+=</span> <span class="n">review_to_sentences</span><span class="p">(</span><span class="n">review</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">review</span> <span class="ow">in</span> <span class="n">df_unlabelled</span><span class="p">[</span> <span class="s">&#39;review&#39;</span> <span class="p">]:</span>
+    <span class="n">sentences</span> <span class="o">+=</span> <span class="n">review_to_sentences</span><span class="p">(</span><span class="n">review</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>/usr/local/lib/python2.7/dist-packages/bs4/__init__.py:166: UserWarning: No parser was explicitly specified, so I&apos;m using the best available HTML parser for this system (&quot;lxml&quot;). This usually isn&apos;t a problem, but if you run this code on another system, or in a different virtual environment, it may use a different parser and behave differently.
+
+To get rid of this warning, change this:
+
+ BeautifulSoup([your markup])
+
+to this:
+
+ BeautifulSoup([your markup], &quot;lxml&quot;)
+
+  markup_type=markup_type))
+/usr/local/lib/python2.7/dist-packages/bs4/__init__.py:198: UserWarning: &quot;.&quot; looks like a filename, not markup. You should probably open this file and pass the filehandle into Beautiful Soup.
+  &apos;&quot;%s&quot; looks like a filename, not markup. You should probably open this file and pass the filehandle into Beautiful Soup.&apos; % markup)
+/usr/local/lib/python2.7/dist-packages/bs4/__init__.py:207: UserWarning: &quot;http://www.happierabroad.com&quot;&quot; looks like a URL. Beautiful Soup is not an HTTP client. You should probably use an HTTP client to get the document behind the URL, and feed that document to Beautiful Soup.
+  &apos;&quot;%s&quot; looks like a URL. Beautiful Soup is not an HTTP client. You should probably use an HTTP client to get the document behind the URL, and feed that document to Beautiful Soup.&apos; % markup)
+/usr/local/lib/python2.7/dist-packages/bs4/__init__.py:207: UserWarning: &quot;http://www.archive.org/details/LovefromaStranger&quot;&quot; looks like a URL. Beautiful Soup is not an HTTP client. You should probably use an HTTP client to get the document behind the URL, and feed that document to Beautiful Soup.
+  &apos;&quot;%s&quot; looks like a URL. Beautiful Soup is not an HTTP client. You should probably use an HTTP client to get the document behind the URL, and feed that document to Beautiful Soup.&apos; % markup)
+/usr/local/lib/python2.7/dist-packages/bs4/__init__.py:207: UserWarning: &quot;http://www.loosechangeguide.com/LooseChangeGuide.html&quot;&quot; looks like a URL. Beautiful Soup is not an HTTP client. You should probably use an HTTP client to get the document behind the URL, and feed that document to Beautiful Soup.
+  &apos;&quot;%s&quot; looks like a URL. Beautiful Soup is not an HTTP client. You should probably use an HTTP client to get the document behind the URL, and feed that document to Beautiful Soup.&apos; % markup)
+/usr/local/lib/python2.7/dist-packages/bs4/__init__.py:207: UserWarning: &quot;http://www.msnbc.msn.com/id/4972055/site/newsweek/&quot;&quot; looks like a URL. Beautiful Soup is not an HTTP client. You should probably use an HTTP client to get the document behind the URL, and feed that document to Beautiful Soup.
+  &apos;&quot;%s&quot; looks like a URL. Beautiful Soup is not an HTTP client. You should probably use an HTTP client to get the document behind the URL, and feed that document to Beautiful Soup.&apos; % markup)
+/usr/local/lib/python2.7/dist-packages/bs4/__init__.py:198: UserWarning: &quot;..&quot; looks like a filename, not markup. You should probably open this file and pass the filehandle into Beautiful Soup.
+  &apos;&quot;%s&quot; looks like a filename, not markup. You should probably open this file and pass the filehandle into Beautiful Soup.&apos; % markup)
+/usr/local/lib/python2.7/dist-packages/bs4/__init__.py:207: UserWarning: &quot;http://www.youtube.com/watch?v=a0KSqelmgN8&quot;&quot; looks like a URL. Beautiful Soup is not an HTTP client. You should probably use an HTTP client to get the document behind the URL, and feed that document to Beautiful Soup.
+  &apos;&quot;%s&quot; looks like a URL. Beautiful Soup is not an HTTP client. You should probably use an HTTP client to get the document behind the URL, and feed that document to Beautiful Soup.&apos; % markup)
+/usr/local/lib/python2.7/dist-packages/bs4/__init__.py:207: UserWarning: &quot;http://jake-weird.blogspot.com/2007/08/beneath.html&quot;&quot; looks like a URL. Beautiful Soup is not an HTTP client. You should probably use an HTTP client to get the document behind the URL, and feed that document to Beautiful Soup.
+  &apos;&quot;%s&quot; looks like a URL. Beautiful Soup is not an HTTP client. You should probably use an HTTP client to get the document behind the URL, and feed that document to Beautiful Soup.&apos; % markup)
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[5]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span> <span class="n">format</span><span class="o">=</span><span class="s">&#39;</span><span class="si">%(asctime)s</span><span class="s"> : </span><span class="si">%(levelname)s</span><span class="s"> : </span><span class="si">%(message)s</span><span class="s">&#39;</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span> <span class="p">)</span>
+
+<span class="n">num_features</span> <span class="o">=</span> <span class="mi">300</span>    <span class="c"># dimensionality                      </span>
+<span class="n">min_word_count</span> <span class="o">=</span> <span class="mi">40</span>   <span class="c"># minimum word count                        </span>
+<span class="n">num_workers</span> <span class="o">=</span> <span class="mi">6</span>       <span class="c"># number of threads to run in parallel</span>
+<span class="n">context</span> <span class="o">=</span> <span class="mi">10</span>          <span class="c"># context window size                                                                                    </span>
+<span class="n">downsampling</span> <span class="o">=</span> <span class="mf">1e-3</span>   <span class="c"># downsample setting for frequent words</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">gensim</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Word2Vec</span><span class="p">(</span><span class="n">sentences</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="n">num_workers</span><span class="p">,</span> \
+            <span class="n">size</span><span class="o">=</span><span class="n">num_features</span><span class="p">,</span> <span class="n">min_count</span> <span class="o">=</span> <span class="n">min_word_count</span><span class="p">,</span> \
+            <span class="n">window</span> <span class="o">=</span> <span class="n">context</span><span class="p">,</span> <span class="n">sample</span> <span class="o">=</span> <span class="n">downsampling</span><span class="p">)</span>
+
+<span class="c"># free memory</span>
+<span class="n">model</span><span class="o">.</span><span class="n">init_sims</span><span class="p">(</span> <span class="n">replace</span><span class="o">=</span><span class="bp">True</span> <span class="p">)</span>
+
+<span class="c"># save model</span>
+<span class="n">model_name</span> <span class="o">=</span> <span class="s">&quot;300features_40minwords_10context&quot;</span>
+<span class="n">model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">model_name</span><span class="p">)</span>
+
+<span class="c"># stat</span>
+<span class="k">print</span><span class="p">(</span> <span class="s">&#39;total run time: {0} [s]&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span> <span class="n">model</span><span class="o">.</span><span class="n">total_train_time</span> <span class="p">)</span> <span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>total run time: 492.933614016 [s]
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[6]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="n">nan_words</span> <span class="o">=</span> <span class="p">{}</span>
+
+<span class="k">def</span> <span class="nf">makeFeatureVec</span><span class="p">(</span> <span class="n">words</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">num_features</span><span class="p">,</span> <span class="n">index2word_set</span> <span class="p">):</span>
+    <span class="n">featureVec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">num_features</span><span class="p">,),</span><span class="n">dtype</span><span class="o">=</span><span class="s">&quot;float32&quot;</span><span class="p">)</span>
+    <span class="n">nwords</span> <span class="o">=</span> <span class="mf">0.</span>
+
+    <span class="k">for</span> <span class="n">word</span> <span class="ow">in</span> <span class="n">words</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">word</span> <span class="ow">in</span> <span class="n">index2word_set</span><span class="p">:</span> 
+            <span class="n">nwords</span> <span class="o">=</span> <span class="n">nwords</span> <span class="o">+</span> <span class="mf">1.</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span> <span class="n">model</span><span class="p">[</span> <span class="n">word</span> <span class="p">]</span> <span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">word</span> <span class="ow">in</span> <span class="n">nan_words</span><span class="p">:</span>
+                    <span class="n">nan_words</span><span class="p">[</span> <span class="n">word</span> <span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">nan_words</span><span class="p">[</span> <span class="n">word</span> <span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+    
+            <span class="n">featureVec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">featureVec</span><span class="p">,</span><span class="n">model</span><span class="p">[</span><span class="n">word</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">nwords</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">featureVec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span><span class="n">featureVec</span><span class="p">,</span><span class="n">nwords</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">featureVec</span>
+
+<span class="k">def</span> <span class="nf">getAvgFeatureVecs</span><span class="p">(</span><span class="n">reviews</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">num_features</span><span class="p">,</span> <span class="n">index2word_set</span> <span class="p">):</span>
+    <span class="n">counter</span> <span class="o">=</span> <span class="mf">0.</span>
+    <span class="n">reviewFeatureVecs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">reviews</span><span class="p">),</span><span class="n">num_features</span><span class="p">),</span><span class="n">dtype</span><span class="o">=</span><span class="s">&quot;float32&quot;</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">review</span> <span class="ow">in</span> <span class="n">reviews</span><span class="p">:</span>
+       <span class="k">if</span> <span class="n">counter</span> <span class="o">%</span> <span class="mi">1000</span> <span class="o">==</span> <span class="mf">0.</span><span class="p">:</span>
+           <span class="k">print</span> <span class="s">&quot;Review </span><span class="si">%d</span><span class="s"> of </span><span class="si">%d</span><span class="s">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">counter</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">reviews</span><span class="p">))</span>
+       <span class="n">reviewFeatureVecs</span><span class="p">[</span><span class="n">counter</span><span class="p">]</span> <span class="o">=</span> <span class="n">makeFeatureVec</span><span class="p">(</span><span class="n">review</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">num_features</span><span class="p">,</span> <span class="n">index2word_set</span> <span class="p">)</span>
+       <span class="n">counter</span> <span class="o">=</span> <span class="n">counter</span> <span class="o">+</span> <span class="mf">1.</span>
+
+    <span class="k">return</span> <span class="n">reviewFeatureVecs</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[7]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="n">index2word_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span> <span class="n">model</span><span class="o">.</span><span class="n">index2word</span> <span class="p">)</span>
+
+<span class="n">clean_train_reviews</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">review</span> <span class="ow">in</span> <span class="n">train</span><span class="p">[</span> <span class="s">&#39;review&#39;</span> <span class="p">]:</span>
+    <span class="n">clean_train_reviews</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">review_to_wordlist</span><span class="p">(</span> <span class="n">review</span><span class="p">,</span> <span class="n">remove_stopwords</span><span class="o">=</span><span class="bp">True</span> <span class="p">)</span> <span class="p">)</span>
+
+<span class="n">trainDataVecs</span> <span class="o">=</span> <span class="n">getAvgFeatureVecs</span><span class="p">(</span> <span class="n">clean_train_reviews</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">num_features</span><span class="p">,</span> <span class="n">index2word_set</span> <span class="p">)</span>
+
+<span class="n">clean_test_reviews</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">review</span> <span class="ow">in</span> <span class="n">test</span><span class="p">[</span> <span class="s">&#39;review&#39;</span> <span class="p">]:</span>
+    <span class="n">clean_test_reviews</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">review_to_wordlist</span><span class="p">(</span> <span class="n">review</span><span class="p">,</span> <span class="n">remove_stopwords</span><span class="o">=</span><span class="bp">True</span> <span class="p">)</span> <span class="p">)</span>
+
+<span class="n">testDataVecs</span> <span class="o">=</span> <span class="n">getAvgFeatureVecs</span><span class="p">(</span> <span class="n">clean_test_reviews</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">num_features</span><span class="p">,</span> <span class="n">index2word_set</span> <span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Review 0 of 16554
+Review 1000 of 16554
+Review 2000 of 16554
+Review 3000 of 16554
+Review 4000 of 16554
+Review 5000 of 16554
+Review 6000 of 16554
+Review 7000 of 16554
+Review 8000 of 16554
+Review 9000 of 16554
+Review 10000 of 16554
+Review 11000 of 16554
+Review 12000 of 16554
+Review 13000 of 16554
+Review 14000 of 16554
+Review 15000 of 16554
+Review 16000 of 16554
+Review 0 of 8446
+Review 1000 of 8446
+Review 2000 of 8446
+Review 3000 of 8446
+Review 4000 of 8446
+Review 5000 of 8446
+Review 6000 of 8446
+Review 7000 of 8446
+Review 8000 of 8446
+</pre>
+</div>
+</div>
+
+<div class="output_area"><div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>/usr/local/lib/python2.7/dist-packages/ipykernel/__main__.py:29: DeprecationWarning: using a non-integer number instead of an integer will result in an error in the future
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[16]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">sklearn.grid_search</span> <span class="kn">import</span> <span class="n">GridSearchCV</span>
+<span class="kn">import</span> <span class="nn">xgboost</span> <span class="kn">as</span> <span class="nn">xgb</span>
+
+<span class="n">x_params</span> <span class="o">=</span> <span class="p">{</span> <span class="s">&#39;max_depth&#39;</span><span class="p">:</span> <span class="p">[</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">12</span> <span class="p">],</span>
+             <span class="s">&#39;n_estimators&#39;</span><span class="p">:</span> <span class="p">[</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">1000</span> <span class="p">],</span>
+             <span class="s">&#39;objective&#39;</span><span class="p">:</span> <span class="p">[</span> <span class="s">&#39;binary:logistic&#39;</span> <span class="p">],</span>
+           <span class="p">}</span>
+
+<span class="n">xgb_model</span> <span class="o">=</span> <span class="n">xgb</span><span class="o">.</span><span class="n">XGBClassifier</span><span class="p">()</span>
+
+<span class="n">clf</span> <span class="o">=</span> <span class="n">GridSearchCV</span><span class="p">(</span><span class="n">xgb_model</span><span class="p">,</span> <span class="n">x_params</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">clf</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span> <span class="n">trainDataVecs</span><span class="p">,</span> <span class="n">train</span><span class="p">[</span> <span class="s">&#39;sentiment&#39;</span> <span class="p">]</span> <span class="p">)</span>
+
+<span class="k">print</span><span class="p">(</span><span class="n">clf</span><span class="o">.</span><span class="n">best_score_</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="n">clf</span><span class="o">.</span><span class="n">best_params_</span><span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt"></div>
+<div class="output_subarea output_stream output_stderr output_text">
+<pre>[Parallel(n_jobs=1)]: Done   1 jobs       | elapsed:    8.1s
+[Parallel(n_jobs=1)]: Done  27 out of  27 | elapsed: 18.8min finished
+</pre>
+</div>
+</div>
+
+<div class="output_area"><div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>Fitting 3 folds for each of 9 candidates, totalling 27 fits
+0.865047722605
+{&apos;n_estimators&apos;: 1000, &apos;objective&apos;: &apos;binary:logistic&apos;, &apos;max_depth&apos;: 8}
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[17]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="n">score</span> <span class="o">=</span> <span class="n">clf</span><span class="o">.</span><span class="n">score</span><span class="p">(</span> <span class="n">testDataVecs</span><span class="p">,</span> <span class="n">test</span><span class="p">[</span> <span class="s">&#39;sentiment&#39;</span> <span class="p">]</span> <span class="p">)</span>
+<span class="k">print</span><span class="p">(</span> <span class="s">&#39;score: {0}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span> <span class="n">score</span> <span class="p">)</span> <span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>score: 0.863840871418
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[37]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="kn">from</span> <span class="nn">sklearn.metrics</span> <span class="kn">import</span> <span class="n">roc_curve</span><span class="p">,</span> <span class="n">auc</span>
+
+<span class="n">proba</span> <span class="o">=</span> <span class="n">clf</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span> <span class="n">testDataVecs</span> <span class="p">)[</span> <span class="p">:,</span> <span class="mi">1</span> <span class="p">]</span>
+<span class="n">fpr</span><span class="p">,</span> <span class="n">tpr</span><span class="p">,</span> <span class="n">thresholds</span> <span class="o">=</span> <span class="n">roc_curve</span><span class="p">(</span> <span class="n">test</span><span class="p">[</span> <span class="s">&#39;sentiment&#39;</span> <span class="p">]</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="n">proba</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span> <span class="p">)</span>
+<span class="n">roc_auc</span> <span class="o">=</span> <span class="n">auc</span><span class="p">(</span> <span class="n">fpr</span><span class="p">,</span> <span class="n">tpr</span> <span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[38]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="c"># Plot Precision-Recall curve</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">clf</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s">&#39;Recall&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s">&#39;Precision&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylim</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.05</span><span class="p">])</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlim</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">])</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span> <span class="n">fpr</span><span class="p">,</span> <span class="n">tpr</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s">&#39;ROC curve (area = </span><span class="si">%0.2f</span><span class="s">)&#39;</span> <span class="o">%</span> <span class="n">roc_auc</span> <span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s">&quot;lower right&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt"></div>
+
+
+<div class="output_png output_subarea ">
+<img src="data:image/png;base64,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
+karMibgAAAAASUVORK5CYII=
+"
+>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>OK, AUC is 94% for word vectors vs 90% for simple bag of words.  Not bad ... but let's take a look at few data examples to see what's going on under the hood.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[59]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="n">diffs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span> <span class="n">clf</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span> <span class="n">testDataVecs</span> <span class="p">)</span> <span class="o">!=</span> <span class="n">test</span><span class="p">[</span> <span class="s">&#39;sentiment&#39;</span> <span class="p">]</span> <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+<span class="c"># print 1st few differences</span>
+<span class="k">print</span><span class="p">(</span> <span class="n">diffs</span><span class="p">[</span> <span class="mi">1</span><span class="p">:</span><span class="mi">3</span> <span class="p">]</span> <span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt"></div>
+<div class="output_subarea output_stream output_stdout output_text">
+<pre>[14 19]
+</pre>
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[57]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="n">BeautifulSoup</span><span class="p">(</span> <span class="n">test</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span> <span class="mi">14</span><span class="p">,</span> <span class="mi">2</span> <span class="p">]</span> <span class="p">)</span><span class="o">.</span><span class="n">get_text</span><span class="p">()</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt output_prompt">Out[57]:</div>
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>u&apos;&quot;Okay, sorry, but I loved this movie. I just love the whole 80\&apos;s genre of these kind of movies, because you don\&apos;t see many like this one anymore! I want to ask all of you people who say this movie is just a rip-off, or a cheesy imitation, what is it imitating? I\&apos;ve never seen another movie like this one, well, not horror anyway.Basically its about the popular group in school, who like to make everyones lives living hell, so they decided to pick on this nerdy boy named Marty. It turns fatal when he really gets hurt from one of their little pranks.So, its like 10 years later, and the group of friends who hurt Marty start getting High School reunion letters. But...they are the only ones receiving them! So they return back to the old school, and one by one get knocked off by.......Yeah you probably know what happens!The only part that disappointed me was the very end. It could have been left off, or thought out better.I think you should give it a try, and try not to be to critical!~*~CupidGrl~*~&quot;&apos;</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[58]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython2"><pre><span class="n">BeautifulSoup</span><span class="p">(</span> <span class="n">test</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span> <span class="mi">19</span><span class="p">,</span> <span class="mi">2</span> <span class="p">]</span> <span class="p">)</span><span class="o">.</span><span class="n">get_text</span><span class="p">()</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area"><div class="prompt output_prompt">Out[58]:</div>
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>u&apos;&quot;A charming boy and his mother move to a middle of nowhere town, cats and death soon follow them. That about sums it up.I\&apos;ll admit that I am a little freaked out by cats after seeing this movie. But in all seriousness in spite of the numerous things that are wrong with this film, and believe me there is plenty of that to go around, it is overall a very enjoyable viewing experience.The characters are more like caricatures here with only their basis instincts to rely on. Fear, greed, pride lust or anger seems to be all that motivate these people. Although it can be argued that that seeming failing, in actuality, serves the telling of the story. The supernatural premise and the fact that it is a Stephen King screenplay(not that I have anything specific against Mr. King) are quite nicely supported by some interesting FX work, makeup and quite suitable music. The absolute gem of this film is without a doubt Alice Krige who plays Mary Brady, the otherworldly mother.King manages to take a simple story of outsider, or people who are a little different(okay - a lot in this case), trying to fit in and twists it into a campy over the top little horror gem that has to be in the collection of any horror fan.&quot;&apos;</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Well, hard to say what is driving these errors.  My bet is on double negations again, which simple classification methods will definitely strugle with.<br>
+For the next encounter with NLP we will bring heavy machinery: Recurrent Neural Networks and see how they would perform with this task.</p>
+
+</div>
+</div>
+</div>

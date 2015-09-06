@@ -6,7 +6,7 @@ title: About
 About
 ========
 
-* The Blog by marcino239  https://marcino239.github.io
+* The Blog by [marcino239](https://github.com/marcino239)
 <br />
 
 About this site
